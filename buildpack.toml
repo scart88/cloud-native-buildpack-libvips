@@ -1,0 +1,18 @@
+api = "0.7"
+
+[buildpack]
+  id = "scart88/cloud-native-buildpack-libvips"
+  version = "0.0.1"
+  name = "vips buildpacks apt Packages Buildpack"
+  homepage = "https://github.com/scart88/cloud-native-buildpack-libvips"
+  description = "Installs apt packages for further builds and runtime"
+  keywords = ["apt", "packages", "ubuntu"]
+
+[[stacks]]
+  id = "heroku-18"
+
+[[stacks]]
+  id = "heroku-20"
+
+[[stacks]]
+  id = "io.buildpacks.samples.stacks.bionic"

@@ -2,11 +2,11 @@ api = "0.7"
 
 [buildpack]
   id = "scart88/cloud-native-buildpack-libvips"
-  version = "0.0.1"
-  name = "vips buildpacks apt Packages Buildpack"
+  version = "0.0.2"
+  name = "LIBVIPS buildpacks Package Buildpack"
   homepage = "https://github.com/scart88/cloud-native-buildpack-libvips"
   description = "Installs apt packages for further builds and runtime"
-  keywords = ["apt", "packages", "ubuntu"]
+  keywords = ["apt", "packages", "ubuntu", "pack", "cloud", "kubernetes]
 
 [[stacks]]
   id = "heroku-18"

@@ -1,7 +1,30 @@
 #!/usr/bin/env bash
 
+# Usage: compile <layers_dir> <cache_dir> <env_dir>
+
+# fail fast and loudly
+# set -euo pipefail
+# set -eu
+set -eo pipefail
+
+layers_dir=$1
+env_dir=$2/env
+plan_path=$3
+
+vips_layer=$layers_dir/libvips
+cache_dir=$layers_dir/libvips-cache
+tmp_layer=$layers_dir/.libvips-tmp
+vendor_path=$layers_dir/.heroku
+vips_path=$vendor_path/vips
+
+BP_DIR=$(cd "$(dirname "${0:-}")"; cd ..; pwd)
+
 indent() {
-  sed 's/^/       /'
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
 }
 
 arrow() {
@@ -9,24 +32,31 @@ arrow() {
 }
 
 ensure_dirs() {
-  mkdir -p $TMP_DIR
-  mkdir -p $VIPS_PATH
-  mkdir -p $CACHE_DIR
+  echo "[BUILD vipslayer]"
+  mkdir -p $vips_layer
+  mkdir -p $tmp_layer
+  mkdir -p $vips_path
+  mkdir -p $cache_dir
+  echo "VIPS $vips_layer"
+  echo "TMP $tmp_layer"
+  echo "PATH $vips_path"
+  echo "CACHE $cache_dir"
 }
 
 cleanup_build() {
-  rm -Rf $TMP_DIR
+  rm -Rf $tmp_layer
 }
 
 export_profile() {
-  mkdir -p $BUILD_DIR/.profile.d
-  cp $BP_DIR/.profile.d/* $BUILD_DIR/.profile.d/
+  echo "Export Profile"
+  mkdir -p $layers_dir/.profile.d
+  cp $BP_DIR/.profile.d/* $layers_dir/.profile.d/
 }
 
 install_libvips() {
   detect_libvips_version
 
-  if [[ -d "$CACHE_DIR/$LIBVIPS_VERSION" ]]; then
+  if [[ -d "$cache_dir/$LIBVIPS_VERSION" ]]; then
     restore_cached_build
   else
     build_libvips
@@ -34,10 +64,10 @@ install_libvips() {
 }
 
 detect_libvips_version() {
-  [[ ! -d $ENV_DIR ]] && exit 1
+  [[ ! -d $env_dir ]] && exit 1
 
-  if [[ -r "$ENV_DIR/LIBVIPS_VERSION" ]]; then
-    export LIBVIPS_VERSION=$(cat "$ENV_DIR/LIBVIPS_VERSION")
+  if [[ -r "$env_dir/LIBVIPS_VERSION" ]]; then
+    export LIBVIPS_VERSION=$(cat "$env_dir/LIBVIPS_VERSION")
   else
     echo "Checking for latest libvips version" | indent
     export LIBVIPS_VERSION=$(detect_latest_version)
@@ -56,7 +86,7 @@ detect_latest_version() {
 
 restore_cached_build() {
   echo "Restoring cached libvips build" | indent
-  cp -R "$CACHE_DIR/$LIBVIPS_VERSION/." $VIPS_PATH
+  cp -R "$cache_dir/$LIBVIPS_VERSION/." $vips_path
 }
 
 build_libvips() {
@@ -64,7 +94,7 @@ build_libvips() {
 
   download_libvips \
     && unpack_source_archive \
-    && cd $TMP_DIR \
+    && cd $tmp_layer \
     && configure_and_compile \
     && make -s install > /dev/null 2>& 1 \
     && cd ~ \
@@ -72,9 +102,9 @@ build_libvips() {
 }
 
 download_libvips() {
-  rm -Rf $CACHE_DIR/*
+  rm -Rf $cache_dir/*
 
-  local download_path="$TMP_DIR/libvips.tar.gz"
+  local download_path="$tmp_layer/libvips.tar.gz"
 
   echo "Downloading libvips ${LIBVIPS_VERSION} source archive" | indent
   curl -sL "https://github.com/libvips/libvips/releases/download/v${LIBVIPS_VERSION}/vips-${LIBVIPS_VERSION}.tar.gz" -o $download_path
@@ -82,12 +112,12 @@ download_libvips() {
 
 unpack_source_archive() {
   echo "Unpacking libvips source archive" | indent \
-    && tar xf "$TMP_DIR/libvips.tar.gz" -C $TMP_DIR --strip 1
+    && tar xf "$tmp_layer/libvips.tar.gz" -C $tmp_layer --strip 1
 }
 
 configure_and_compile() {
   echo "Compiling libvips" | indent \
-    && ./configure --prefix $VIPS_PATH --enable-shared --disable-static \
+    && ./configure --prefix $vips_path --enable-shared --disable-static \
       --disable-dependency-tracking --disable-debug --disable-introspection \
       --without-fftw --without-pangoft2 --without-ppm \
       --without-analyze --without-radiance > /dev/null 2>& 1 \
@@ -97,15 +127,10 @@ configure_and_compile() {
 cache_build() {
   echo "Caching binaries" | indent
 
-  cp -R "$VIPS_PATH/." "$CACHE_DIR/$LIBVIPS_VERSION"
+  cp -R "$vips_path/." "$cache_dir/$LIBVIPS_VERSION"
 }
 
-
-# set -euo pipefail
-
-# layers_dir="$1"
-# env_dir="$2/env"
-# plan_path="$3"
-
-# exit 0
-
+ensure_dirs
+install_libvips
+cleanup_build
+export_profile
